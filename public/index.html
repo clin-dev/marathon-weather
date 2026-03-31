@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marathon Weather — Race Day Forecast</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header>
+  <div class="logo">🏃 Marathon Weather</div>
+  <div class="tagline">Race-day forecasts built for runners</div>
+</header>
+
+<div class="saved-panel" id="savedPanel" hidden>
+  <div class="saved-inner">
+    <span class="saved-label">Saved Races</span>
+    <div class="race-chips" id="raceChips"></div>
+  </div>
+</div>
+
+<div class="search-panel">
+  <div class="search-row">
+    <div class="search-wrap">
+      <span class="icon">📍</span>
+      <input type="text" id="locationInput" placeholder="City, race course, or address…" autocomplete="off" />
+      <ul class="autocomplete-list" id="autocompleteList"></ul>
+    </div>
+    <input type="date" id="raceDateInput" />
+    <button class="btn-forecast" id="forecastBtn" onclick="getForecast()">Get Forecast</button>
+  </div>
+</div>
+
+<div id="status"></div>
+<div id="results"></div>
+
+<footer>
+  Weather data from <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> (free, open-source) ·
+  Geocoding by <a href="https://nominatim.org" target="_blank">Nominatim/OpenStreetMap</a>
+</footer>
+
+<script src="js/weather.js"></script>
+<script src="js/api.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
