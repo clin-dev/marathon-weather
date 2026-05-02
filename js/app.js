@@ -1,84 +1,99 @@
 // State & orchestration
 
-let selectedLocation = null;
+let selectedRace = null;
 let searchTimeout = null;
 
-const locationInput = document.getElementById('locationInput');
+const raceInput = document.getElementById('raceInput');
 
-// ── Init ──────────────────────────────────────────────────────────────────────
 (function init() {
-  const dateInput = document.getElementById('raceDateInput');
-  const today = new Date();
-
-  // Default to next Saturday
-  const daysUntilSaturday = (6 - today.getDay() + 7) % 7 || 7;
-  const sat = new Date(today);
-  sat.setDate(today.getDate() + daysUntilSaturday);
-  dateInput.value = toLocalDateString(sat);
-
-  // Limit to 16 days out (Open-Meteo forecast window)
-  const maxDate = new Date(today);
-  maxDate.setDate(today.getDate() + 15);
-  dateInput.max = toLocalDateString(maxDate);
-  dateInput.min = toLocalDateString(today);
+  loadInitialMarathons();
 })();
 
-// ── Autocomplete ──────────────────────────────────────────────────────────────
-locationInput.addEventListener('input', () => {
+async function loadInitialMarathons() {
+  try {
+    const races = await fetchUpcomingMarathons();
+    renderMarathonSuggestions(races, selectRace);
+  } catch {
+    // Search still works if the initial suggestions fail.
+  }
+}
+
+// ── Marathon search autocomplete ─────────────────────────────────────────────
+raceInput.addEventListener('input', () => {
   clearTimeout(searchTimeout);
-  selectedLocation = null;
-  const q = locationInput.value.trim();
-  if (q.length < 2) { closeAutocomplete(); return; }
+  selectedRace = null;
+
+  const q = raceInput.value.trim();
+  if (q.length < 2) {
+    closeAutocomplete();
+    return;
+  }
+
   searchTimeout = setTimeout(async () => {
     try {
-      const data = await searchLocations(q);
-      renderAutocomplete(data, (loc, name) => {
-        selectedLocation = loc;
-        locationInput.value = name;
-        getForecast();
-      });
+      const results = await searchMarathons(q);
+      renderAutocomplete(results, selectRace);
     } catch {
       closeAutocomplete();
     }
-  }, 350);
+  }, 200);
 });
 
-locationInput.addEventListener('keydown', e => {
+raceInput.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeAutocomplete();
-  if (e.key === 'Enter')  { closeAutocomplete(); getForecast(); }
+  if (e.key === 'Enter') {
+    closeAutocomplete();
+    getForecast();
+  }
 });
 
 document.addEventListener('click', e => {
   if (!e.target.closest('.search-wrap')) closeAutocomplete();
 });
 
+function selectRace(race) {
+  selectedRace = {
+    ...race,
+    startHour: race.start_hour,
+  };
+  raceInput.value = race.name;
+  getForecast();
+}
+
 // ── Forecast ──────────────────────────────────────────────────────────────────
 async function getForecast() {
-  const dateStr = document.getElementById('raceDateInput').value;
-  if (!dateStr) { showStatus('Please pick a race date.', true); return; }
-
-  // Geocode if user typed but didn't pick from the autocomplete list
-  if (!selectedLocation) {
-    const q = locationInput.value.trim();
-    if (!q) { showStatus('Please enter a location.', true); return; }
-    showStatus('<span class="loader"></span>Finding location…');
-    try {
-      const loc = await geocodeLocation(q);
-      if (!loc) { showStatus('Location not found. Try a more specific address.', true); return; }
-      selectedLocation = loc;
-    } catch {
-      showStatus('Could not reach geocoding service. Check your connection.', true);
-      return;
-    }
+  if (!selectedRace) {
+    showStatus('Please select a marathon from the database.', true);
+    return;
   }
 
+  const dateStr = selectedRace.race_date;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const raceDate = new Date(dateStr + 'T00:00:00');
+  const daysAhead = Math.ceil((raceDate - today) / 864e5);
+
+  const isPast = raceDate < today;
+  const isForecast = daysAhead >= 0 && daysAhead <= 16;
+
   const btn = document.getElementById('forecastBtn');
-  showStatus('<span class="loader"></span>Fetching race-day forecast…');
+  const label = isPast
+    ? 'Loading past race-day weather…'
+    : isForecast
+      ? 'Fetching race-day forecast…'
+      : 'Loading historical averages…';
+
+  showStatus(`<span class="loader"></span>${label}`);
   btn.disabled = true;
 
   try {
-    const data = await fetchWeather(selectedLocation.lat, selectedLocation.lon);
-    renderForecast(data, dateStr, selectedLocation);
+    const data = isPast
+      ? await fetchPastWeather(selectedRace.lat, selectedRace.lon, dateStr)
+      : isForecast
+        ? await fetchWeather(selectedRace.lat, selectedRace.lon, dateStr)
+        : await fetchClimate(selectedRace.lat, selectedRace.lon, dateStr);
+
+    renderForecast(data, dateStr, selectedRace);
   } catch {
     showStatus('Could not fetch weather data. Please try again.', true);
   } finally {

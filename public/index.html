@@ -4,31 +4,32 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Marathon Weather — Race Day Forecast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
 
 <header>
   <div class="logo">🏃 Marathon Weather</div>
-  <div class="tagline">Race-day forecasts built for runners</div>
 </header>
 
-<div class="saved-panel" id="savedPanel" hidden>
-  <div class="saved-inner">
-    <span class="saved-label">Saved Races</span>
-    <div class="race-chips" id="raceChips"></div>
+<div class="search-hero">
+  <h1>Race day forecast</h1>
+  <p>Search the marathon database. The race date and start time are built in.</p>
+  <div class="search-row">
+    <div class="search-wrap">
+      <input type="text" id="raceInput" placeholder="Search marathons — Boston, Chicago, NYC..." autocomplete="off" />
+      <ul class="autocomplete-list" id="autocompleteList"></ul>
+    </div>
+    <button class="btn-forecast" id="forecastBtn" onclick="getForecast()">Forecast</button>
   </div>
 </div>
 
-<div class="search-panel">
-  <div class="search-row">
-    <div class="search-wrap">
-      <span class="icon">📍</span>
-      <input type="text" id="locationInput" placeholder="City, race course, or address…" autocomplete="off" />
-      <ul class="autocomplete-list" id="autocompleteList"></ul>
-    </div>
-    <input type="date" id="raceDateInput" />
-    <button class="btn-forecast" id="forecastBtn" onclick="getForecast()">Get Forecast</button>
+<div class="marathon-panel" id="marathonPanel" hidden>
+  <div class="marathon-inner">
+    <span class="marathon-label">Upcoming</span>
+    <div class="marathon-list" id="marathonList"></div>
   </div>
 </div>
 
@@ -36,8 +37,7 @@
 <div id="results"></div>
 
 <footer>
-  Weather data from <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> (free, open-source) ·
-  Geocoding by <a href="https://nominatim.org" target="_blank">Nominatim/OpenStreetMap</a>
+  Weather from <a href="https://open-meteo.com" target="_blank">Open-Meteo</a>
 </footer>
 
 <script src="js/weather.js"></script>

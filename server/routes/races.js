@@ -14,14 +14,14 @@ router.get('/', async (req, res) => {
 
 // POST /api/races
 router.post('/', async (req, res) => {
-  const { name, location_name, lat, lon } = req.body;
+  const { name, location_name, lat, lon, start_hour } = req.body;
   if (!name || !location_name || lat == null || lon == null) {
     return res.status(400).json({ error: 'name, location_name, lat, and lon are required' });
   }
   try {
     const { rows } = await pool.query(
-      'INSERT INTO races (name, location_name, lat, lon) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name.trim(), location_name, lat, lon]
+      'INSERT INTO races (name, location_name, lat, lon, start_hour) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [name.trim(), location_name, lat, lon, start_hour ?? 8]
     );
     res.status(201).json(rows[0]);
   } catch {
