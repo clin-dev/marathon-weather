@@ -6,20 +6,59 @@ function closeAutocomplete() {
   autocompleteList.classList.remove('open');
 }
 
+function formatDate(dateStr, options = {}) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', options);
+}
+
+function formatHour(hour) {
+  if (hour < 12) return `${hour}:00 AM`;
+  if (hour === 12) return '12:00 PM';
+  return `${hour - 12}:00 PM`;
+}
+
+function raceSubline(race) {
+  return `${race.city} · ${formatDate(race.race_date, { month: 'short', day: 'numeric', year: 'numeric' })} · ${formatHour(race.start_hour)} start`;
+}
+
 // onSelect(marathon) called when user picks a suggestion
 function renderAutocomplete(results, onSelect) {
-  if (!results.length) { closeAutocomplete(); return; }
+  if (!results.length) {
+    closeAutocomplete();
+    return;
+  }
+
   autocompleteList.innerHTML = '';
   results.forEach(r => {
     const li = document.createElement('li');
-    const startLabel = r.startHour < 12
-      ? `${r.startHour}:00 AM`
-      : r.startHour === 12 ? '12:00 PM' : `${r.startHour - 12}:00 PM`;
-    li.innerHTML = `<div>${r.name}</div><div class="sub">${r.city} · ${startLabel} start</div>`;
-    li.addEventListener('click', () => { onSelect(r); closeAutocomplete(); });
+    li.innerHTML = `<div>${r.name}</div><div class="sub">${raceSubline(r)}</div>`;
+    li.addEventListener('click', () => {
+      onSelect(r);
+      closeAutocomplete();
+    });
     autocompleteList.appendChild(li);
   });
   autocompleteList.classList.add('open');
+}
+
+function renderMarathonSuggestions(races, onSelect) {
+  const panel = document.getElementById('marathonPanel');
+  const list = document.getElementById('marathonList');
+  if (!panel || !list || !races.length) return;
+
+  panel.hidden = false;
+  list.innerHTML = races.map(r => `
+    <button class="marathon-chip" data-slug="${r.slug}">
+      <span>${r.name}</span>
+      <small>${formatDate(r.race_date, { month: 'short', day: 'numeric' })}</small>
+    </button>
+  `).join('');
+
+  list.onclick = e => {
+    const chip = e.target.closest('.marathon-chip');
+    if (!chip) return;
+    const race = races.find(r => r.slug === chip.dataset.slug);
+    if (race) onSelect(race);
+  };
 }
 
 function showStatus(msg, isError = false) {
@@ -29,35 +68,21 @@ function showStatus(msg, isError = false) {
   if (!msg) document.getElementById('results').classList.remove('visible');
 }
 
-function renderSavedRaces(races) {
-  const panel = document.getElementById('savedPanel');
-  const chips = document.getElementById('raceChips');
-  if (!races.length) { panel.hidden = true; return; }
-  panel.hidden = false;
-  chips.innerHTML = races.map(r => `
-    <div class="race-chip" data-id="${r.id}" data-lat="${r.lat}" data-lon="${r.lon}"
-         data-location="${encodeURIComponent(r.location_name)}" data-start-hour="${r.start_hour || 8}">
-      <button class="chip-name">${r.name}</button>
-      <button class="chip-delete" title="Remove">×</button>
-    </div>
-  `).join('');
-}
-
-// race = { name, city, lat, lon, startHour }
+// race = { name, city, lat, lon, race_date, start_hour }
 function renderForecast(data, dateStr, race) {
-  const times    = data.hourly.time;
-  const temps    = data.hourly.temperature_2m;
-  const feelsLike= data.hourly.apparent_temperature;
-  const pop      = data.hourly.precipitation_probability;
-  const precip   = data.hourly.precipitation;
-  const codes    = data.hourly.weathercode;
-  const wind     = data.hourly.windspeed_10m;
-  const windDir  = data.hourly.winddirection_10m;
-  const humidity = data.hourly.relativehumidity_2m;
-  const uvIndex  = data.hourly.uv_index;
+  const times     = data.hourly.time;
+  const temps     = data.hourly.temperature_2m;
+  const feelsLike = data.hourly.apparent_temperature;
+  const pop       = data.hourly.precipitation_probability;
+  const precip    = data.hourly.precipitation;
+  const codes     = data.hourly.weathercode;
+  const wind      = data.hourly.windspeed_10m;
+  const windDir   = data.hourly.winddirection_10m;
+  const humidity  = data.hourly.relativehumidity_2m;
+  const uvIndex   = data.hourly.uv_index;
 
-  const startHour = race.startHour ?? 8;
-  const endHour   = startHour + 6;
+  const startHour = race.start_hour ?? race.startHour ?? 8;
+  const endHour = startHour + 6;
 
   const raceWindow = times.reduce((acc, t, i) => {
     const h = new Date(t).getHours();
@@ -66,7 +91,7 @@ function renderForecast(data, dateStr, race) {
   }, []);
 
   if (!raceWindow.length) {
-    showStatus(`No forecast available for ${dateStr}. Open-Meteo provides up to 16 days of forecasts.`, true);
+    showStatus(`No weather data available for ${race.name} on ${formatDate(dateStr)}.`, true);
     return;
   }
 
@@ -92,36 +117,37 @@ function renderForecast(data, dateStr, race) {
     avgTemp, maxWind, maxPop, avgHum, totalPrec, maxUV, startFL,
   });
 
-  const isClimate = Array.isArray(data.climate_years);
-
-  const dateLong = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+  const mode = data.source || (Array.isArray(data.climate_years) ? 'climate' : 'forecast');
+  const dateLong = formatDate(dateStr, {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
-  const startLabel = startHour < 12
-    ? `${startHour}:00 AM`
-    : startHour === 12 ? '12:00 PM' : `${startHour - 12}:00 PM`;
-
   const tempRange = `${Math.round(Math.min(...windowTemps))}–${Math.round(Math.max(...windowTemps))}°F`;
 
-  let forecastAvailableDate = '';
-  if (isClimate) {
+  let modeBanner = '';
+  if (mode === 'past') {
+    modeBanner = `
+      <div class="data-banner past-banner">
+        <div class="data-banner-title">Past race-day weather</div>
+        <div class="data-banner-sub">Actual archived weather for ${race.name} on ${dateLong}</div>
+      </div>`;
+  } else if (mode === 'climate') {
+    const years = data.climate_years.slice().sort((a, b) => a - b);
     const avail = new Date(dateStr + 'T00:00:00');
     avail.setDate(avail.getDate() - 16);
-    forecastAvailableDate = avail.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    modeBanner = `
+      <div class="data-banner climate-banner">
+        <div class="data-banner-title">Forecast is not available yet</div>
+        <div class="data-banner-sub">Showing historical averages from ${years[0]}–${years[years.length - 1]}. Live forecast starts ${avail.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.</div>
+      </div>`;
   }
 
-  // ── Summary card ──
   let html = `
     <div class="summary-card rating-${ratingClass}">
-      ${isClimate ? `
-      <div class="climate-banner">
-        <div class="climate-banner-title">Historical average — no forecast yet</div>
-        <div class="climate-banner-sub">Based on ${data.climate_years.slice().sort()[0]}–${data.climate_years.slice().sort().pop()} · Live forecast available ${forecastAvailableDate}</div>
-      </div>` : ''}
+      ${modeBanner}
       <div class="summary-header">
         <div class="summary-title">
           <h2>${race.name}</h2>
-          <div class="race-meta">${race.city} · ${dateLong} · Gun ${startLabel}</div>
+          <div class="race-meta">${race.city} · ${dateLong} · Gun ${formatHour(startHour)}</div>
         </div>
         <span class="rating-badge rating-${ratingClass}">${rating}</span>
       </div>
@@ -130,8 +156,8 @@ function renderForecast(data, dateStr, race) {
         <div>
           <div class="hero-temp-value">${Math.round(startTemp)}°</div>
           <div class="hero-temp-sub">
-            <span>${isClimate ? 'Avg feels' : 'Feels'} ${Math.round(startFL)}°F · ${weatherDesc(startCode)}</span>
-            <span>${tempRange} over ${endHour - startHour}h race</span>
+            <span>${mode === 'climate' ? 'Average feels' : 'Feels'} ${Math.round(startFL)}°F · ${weatherDesc(startCode)}</span>
+            <span>${tempRange} over ${endHour - startHour}h race window</span>
           </div>
         </div>
         <div class="hero-icon">${weatherIcon(startCode, startHour)}</div>
@@ -143,7 +169,7 @@ function renderForecast(data, dateStr, race) {
           <span class="stat-pill-value">${Math.round(maxWind)} mph ${windDirLabel}</span>
         </div>
         <div class="stat-pill">
-          <span class="stat-pill-label">Rain</span>
+          <span class="stat-pill-label">${mode === 'climate' ? 'Rain freq.' : 'Rain'}</span>
           <span class="stat-pill-value">${Math.round(maxPop)}%${totalPrec > 0.01 ? ' · ' + totalPrec.toFixed(2) + '"' : ''}</span>
         </div>
         <div class="stat-pill">
@@ -160,28 +186,68 @@ function renderForecast(data, dateStr, race) {
     </div>
   `;
 
-  // ── Hourly ──
-  html += `<div class="hourly-section"><div class="section-label">Hour by Hour</div><div class="hourly-track">`;
+  html += `<div class="hourly-section"><div class="section-label">Race Window</div><div class="hourly-track">`;
 
   raceWindow.forEach(({ i, h }) => {
     const isStart = h === startHour;
-    const label = h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
     const p = pop[i] ?? 0;
     html += `
       <div class="hour-card${isStart ? ' highlight' : ''}">
-        <div class="hour-time">${isStart ? '🚀 ' : ''}${label}</div>
+        <div class="hour-time">${isStart ? 'Start · ' : ''}${formatHour(h).replace(':00 ', ' ')}</div>
         <div class="hour-icon">${weatherIcon(codes[i], h)}</div>
         <div class="hour-temp">${Math.round(temps[i])}°</div>
         <div class="hour-feels">Feels ${Math.round(feelsLike[i])}°</div>
-        <div class="hour-wind">💨 ${Math.round(wind[i])} mph</div>
-        <span class="hour-pop${p >= 40 ? ' wet' : ''}">${p}% rain</span>
+        <div class="hour-wind">Wind ${Math.round(wind[i])} mph</div>
+        <span class="hour-pop${p >= 40 ? ' wet' : ''}">${p}% ${mode === 'climate' ? 'rain freq.' : 'rain'}</span>
       </div>
     `;
   });
 
   html += `</div></div>`;
 
-  // ── Tips ──
+  if (mode === 'climate' && Array.isArray(data.climate_yearly) && data.climate_yearly.length) {
+    const rows = data.climate_yearly
+      .map(yearData => {
+        const yearWindow = yearData.hourly.time.reduce((acc, t, i) => {
+          const h = new Date(t).getHours();
+          if (h >= startHour && h <= endHour) acc.push(i);
+          return acc;
+        }, []);
+        if (!yearWindow.length) return null;
+
+        const tempsForYear = yearWindow.map(i => yearData.hourly.temperature_2m[i]);
+        const feelsForYear = yearWindow.map(i => yearData.hourly.apparent_temperature[i]);
+        const avgYearTemp = avg(tempsForYear);
+        const avgYearFeels = avg(feelsForYear);
+        const minYearTemp = Math.min(...tempsForYear);
+        const maxYearTemp = Math.max(...tempsForYear);
+
+        return `
+          <div class="year-temp-row">
+            <div>
+              <div class="year-temp-year">${yearData.year}</div>
+              <div class="year-temp-range">${Math.round(minYearTemp)}–${Math.round(maxYearTemp)}°F range</div>
+            </div>
+            <div class="year-temp-values">
+              <span>${Math.round(avgYearTemp)}° avg</span>
+              <small>${Math.round(avgYearFeels)}° feels</small>
+            </div>
+          </div>
+        `;
+      })
+      .filter(Boolean)
+      .join('');
+
+    if (rows) {
+      html += `
+        <div class="yearly-section">
+          <div class="section-label">Year by Year</div>
+          <div class="year-temp-list">${rows}</div>
+        </div>
+      `;
+    }
+  }
+
   if (tips.length) {
     html += `<div class="tips-section"><div class="section-label">Runner Tips</div><div class="tips-list">`;
     tips.forEach(t => {
@@ -189,18 +255,6 @@ function renderForecast(data, dateStr, race) {
     });
     html += `</div></div>`;
   }
-
-  // ── Save ──
-  html += `
-    <div class="save-section">
-      <div class="section-label">Save Race</div>
-      <div class="save-form">
-        <input type="text" id="raceNameInput" placeholder="Label (e.g. Boston 2026)" />
-        <button class="btn-save" id="saveRaceBtn" onclick="handleSaveRace()">Save</button>
-      </div>
-      <div id="saveMsg" class="save-msg"></div>
-    </div>
-  `;
 
   showStatus('');
   const resultsEl = document.getElementById('results');

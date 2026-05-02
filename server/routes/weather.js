@@ -1,20 +1,24 @@
 const express = require('express');
 const router  = express.Router();
 
-// GET /api/weather?lat=&lon=
+const HOURLY_FORECAST_FIELDS = 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weathercode,windspeed_10m,winddirection_10m,relativehumidity_2m,uv_index';
+const HOURLY_ARCHIVE_FIELDS = 'temperature_2m,apparent_temperature,precipitation,weathercode,windspeed_10m,winddirection_10m,relativehumidity_2m,uv_index';
+
+// GET /api/weather?lat=&lon=&date=YYYY-MM-DD
 router.get('/weather', async (req, res) => {
-  const { lat, lon } = req.query;
-  if (!lat || !lon) return res.status(400).json({ error: 'lat and lon are required' });
+  const { lat, lon, date } = req.query;
+  if (!lat || !lon || !date) return res.status(400).json({ error: 'lat, lon, and date are required' });
 
   const params = new URLSearchParams({
     latitude:  lat,
     longitude: lon,
-    hourly: 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weathercode,windspeed_10m,winddirection_10m,relativehumidity_2m,uv_index',
+    start_date: date,
+    end_date: date,
+    hourly: HOURLY_FORECAST_FIELDS,
     wind_speed_unit:     'mph',
     temperature_unit:    'fahrenheit',
     precipitation_unit:  'inch',
     timezone:            'auto',
-    forecast_days:       16,
   });
 
   try {
@@ -23,6 +27,37 @@ router.get('/weather', async (req, res) => {
     res.json(await upstream.json());
   } catch {
     res.status(502).json({ error: 'Weather service unavailable' });
+  }
+});
+
+// GET /api/past-weather?lat=&lon=&date=YYYY-MM-DD
+router.get('/past-weather', async (req, res) => {
+  const { lat, lon, date } = req.query;
+  if (!lat || !lon || !date) return res.status(400).json({ error: 'lat, lon, and date are required' });
+
+  const params = new URLSearchParams({
+    latitude:  lat,
+    longitude: lon,
+    start_date: date,
+    end_date: date,
+    hourly: HOURLY_ARCHIVE_FIELDS,
+    temperature_unit:   'fahrenheit',
+    wind_speed_unit:    'mph',
+    precipitation_unit: 'inch',
+    timezone:           'auto',
+  });
+
+  try {
+    const upstream = await fetch(`https://archive-api.open-meteo.com/v1/archive?${params}`);
+    if (!upstream.ok) throw new Error('Upstream error');
+    const data = await upstream.json();
+
+    const precip = data.hourly?.precipitation || [];
+    data.source = 'past';
+    data.hourly.precipitation_probability = precip.map(inches => inches > 0.01 ? 100 : 0);
+    res.json(data);
+  } catch {
+    res.status(502).json({ error: 'Historical weather service unavailable' });
   }
 });
 
@@ -55,14 +90,12 @@ router.get('/climate', async (req, res) => {
   const currentYear = new Date().getFullYear();
   const candidateYears = [1, 2, 3, 4, 5].map(i => currentYear - i);
 
-  const FIELDS = 'temperature_2m,apparent_temperature,precipitation,weathercode,windspeed_10m,winddirection_10m,relativehumidity_2m,uv_index';
-
   const yearResults = await Promise.all(candidateYears.map(async year => {
     const d = `${year}-${month}-${day}`;
     const params = new URLSearchParams({
       latitude: lat, longitude: lon,
       start_date: d, end_date: d,
-      hourly: FIELDS,
+      hourly: HOURLY_ARCHIVE_FIELDS,
       temperature_unit:   'fahrenheit',
       wind_speed_unit:    'mph',
       precipitation_unit: 'inch',
@@ -106,7 +139,16 @@ router.get('/climate', async (req, res) => {
   );
 
   res.json({
+    source: 'climate',
     climate_years: valid.map(v => v.year),
+    climate_yearly: valid.map(({ year, data }) => ({
+      year,
+      hourly: {
+        time: data.hourly.time,
+        temperature_2m: data.hourly.temperature_2m,
+        apparent_temperature: data.hourly.apparent_temperature,
+      },
+    })),
     hourly: {
       time:                      times,
       temperature_2m:            avgField('temperature_2m'),

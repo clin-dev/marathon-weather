@@ -116,26 +116,6 @@ header {
   margin-top: 2px;
 }
 
-input[type="date"] {
-  padding: 13px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 0.9rem;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  flex: 0 0 auto;
-}
-input[type="date"]:focus {
-  background: var(--surface);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
-}
-input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.45; cursor: pointer; }
-
 .btn-forecast {
   padding: 13px 22px;
   background: var(--accent);
@@ -152,19 +132,19 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.45; cursor: p
 .btn-forecast:active { transform: scale(0.98); }
 .btn-forecast:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* ── Saved races ── */
-.saved-panel {
+/* ── Marathon suggestions ── */
+.marathon-panel {
   max-width: 760px;
   margin: 20px auto 0;
   padding: 0 16px;
 }
-.saved-inner {
+.marathon-inner {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
-.saved-label {
+.marathon-label {
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--muted);
@@ -172,38 +152,29 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.45; cursor: p
   letter-spacing: 0.6px;
   white-space: nowrap;
 }
-.race-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.race-chip {
+.marathon-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.marathon-chip {
   display: flex;
   align-items: center;
+  gap: 6px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 999px;
-  overflow: hidden;
-  transition: border-color 0.15s;
-  box-shadow: var(--shadow);
-}
-.race-chip:hover { border-color: #93c5fd; }
-.chip-name {
-  padding: 5px 10px;
-  background: none;
-  border: none;
   color: var(--text);
   font-family: inherit;
   font-size: 0.82rem;
   font-weight: 500;
+  padding: 6px 10px;
   cursor: pointer;
+  transition: border-color 0.15s;
+  box-shadow: var(--shadow);
 }
-.chip-delete {
-  padding: 5px 9px 5px 2px;
-  background: none;
-  border: none;
+.marathon-chip:hover { border-color: #93c5fd; }
+.marathon-chip small {
   color: var(--muted);
-  font-size: 0.9rem;
-  cursor: pointer;
-  line-height: 1;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
-.chip-delete:hover { color: var(--red); }
 
 /* ── Status ── */
 #status {
@@ -254,21 +225,38 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.45; cursor: p
   margin-bottom: 20px;
   border-top-width: 3px;
 }
-/* ── Climate banner ── */
-.climate-banner {
-  background: #fffbeb;
-  border-bottom: 1px solid #fde68a;
+/* ── Data banner ── */
+.data-banner {
   padding: 10px 22px;
+  border-bottom: 1px solid var(--border);
 }
-.climate-banner-title {
+.data-banner-title {
   font-size: 0.8rem;
   font-weight: 600;
+}
+.data-banner-sub {
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+.past-banner {
+  background: #eff6ff;
+  border-bottom-color: #bfdbfe;
+}
+.past-banner .data-banner-title {
+  color: var(--accent);
+}
+.past-banner .data-banner-sub {
+  color: #1e40af;
+}
+.climate-banner {
+  background: #fffbeb;
+  border-bottom-color: #fde68a;
+}
+.climate-banner .data-banner-title {
   color: var(--yellow);
 }
-.climate-banner-sub {
-  font-size: 0.75rem;
+.climate-banner .data-banner-sub {
   color: #92400e;
-  margin-top: 2px;
 }
 
 .summary-card.rating-excellent { border-top-color: var(--green); }
@@ -434,6 +422,46 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.45; cursor: p
 }
 .hour-pop.wet { background: #fef2f2; color: var(--red); }
 
+/* ── Yearly temps ── */
+.yearly-section { margin-bottom: 20px; }
+.year-temp-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.year-temp-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.year-temp-row:last-child { border-bottom: none; }
+.year-temp-year {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.year-temp-range {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.year-temp-values {
+  text-align: right;
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.year-temp-values small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
 /* ── Tips ── */
 .tips-section { margin-bottom: 20px; }
 .tips-list { display: flex; flex-direction: column; gap: 6px; }
@@ -451,49 +479,6 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.45; cursor: p
   box-shadow: var(--shadow);
 }
 .tip-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
-
-/* ── Save section ── */
-.save-section { margin-bottom: 20px; }
-.save-form { display: flex; gap: 8px; flex-wrap: wrap; }
-.save-form input {
-  flex: 1 1 240px;
-  padding: 11px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 0.88rem;
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.save-form input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
-}
-.btn-save {
-  padding: 11px 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 0.88rem;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s;
-}
-.btn-save:hover { border-color: var(--accent); color: var(--accent); }
-.btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
-.save-msg {
-  margin-top: 6px;
-  font-size: 0.82rem;
-  color: var(--muted);
-  min-height: 1.2em;
-}
-.save-msg.success { color: var(--green); }
-.save-msg.error   { color: var(--red); }
 
 /* ── Loader ── */
 .loader {
@@ -521,6 +506,5 @@ footer a { color: var(--muted); }
 @media (max-width: 520px) {
   .search-hero h1 { font-size: 1.5rem; }
   .search-row { flex-direction: column; }
-  input[type="date"] { width: 100%; }
   .hero-temp-value { font-size: 3.5rem; }
 }
