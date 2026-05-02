@@ -14,7 +14,8 @@ function normalizeRace(row) {
 // GET /api/marathons?q=
 router.get('/', async (req, res) => {
   const { q = '', limit = 10 } = req.query;
-  const safeLimit = Math.min(parseInt(limit, 10) || 10, 25);
+  const parsedLimit = parseInt(limit, 10);
+  const safeLimit = Math.min(Math.max(Number.isNaN(parsedLimit) ? 10 : parsedLimit, 1), 25);
 
   try {
     const params = [];
