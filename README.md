@@ -1,118 +1,92 @@
 # Marathon Weather
 
-Race-day weather forecasts for marathon runners, with saved races backed by PostgreSQL.
+Race-day weather for marathon runners. Users search a seeded marathon catalog, and the app uses the race's stored date, location, and start time to show the right weather window.
 
 ## Prerequisites
 
 - Node.js 18+
 - PostgreSQL 14+
 
----
+## Database Setup
 
-## 1. Install PostgreSQL
-
-### macOS (Homebrew)
-```bash
-brew install postgresql@16
-brew services start postgresql@16
-```
-
-### Ubuntu / Debian
-```bash
-sudo apt update && sudo apt install postgresql postgresql-contrib
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-```
-
-### Windows
-Download and run the installer from https://www.postgresql.org/download/windows/
-During setup, note the port (default: 5432) and the password you set for the `postgres` user.
-
----
-
-## 2. Create the database
-
-### macOS / Linux
 ```bash
 createdb marathon_weather
 ```
 
-If `createdb` isn't in your PATH, use:
+If `createdb` is not in your PATH:
+
 ```bash
 psql -U postgres -c "CREATE DATABASE marathon_weather;"
 ```
 
-### Windows (in psql or pgAdmin)
-```sql
-CREATE DATABASE marathon_weather;
-```
-
----
-
-## 3. Configure environment
+Copy the environment template:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
+Set:
 
-```
-# Default (no password, local socket — typical for macOS Homebrew installs)
+```env
 DATABASE_URL=postgresql://localhost:5432/marathon_weather
-
-# With username/password (typical for Linux or Windows installs)
-DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/marathon_weather
-
 PORT=3000
 ```
 
-The `races` table is created automatically on first start — no migration step needed.
+The `marathons` table is created and seeded automatically on server start from `server/data/marathons.js`.
 
----
-
-## 4. Install dependencies & run
+## Run
 
 ```bash
 npm install
-npm run dev      # auto-restarts on file changes (nodemon)
-# or
-npm start        # production
+npm run dev
 ```
 
-Open http://localhost:3000
+For a plain server without file watching:
 
----
-
-## Project structure
-
+```bash
+npm start
 ```
+
+Open http://localhost:3000.
+
+## Project Structure
+
+```text
 marathon-weather/
-├── public/               ← Static frontend (served by Express)
+├── public/                  Static frontend served by Express
 │   ├── index.html
 │   ├── css/styles.css
 │   └── js/
-│       ├── weather.js    ← scoring, icons, helpers (pure functions)
-│       ├── api.js        ← fetch calls to our backend
-│       ├── ui.js         ← DOM rendering
-│       └── app.js        ← state, event wiring, orchestration
+│       ├── weather.js       Scoring, weather labels, helper functions
+│       ├── api.js           Backend fetch wrappers
+│       ├── ui.js            DOM rendering
+│       └── app.js           State, event wiring, orchestration
 ├── server/
-│   ├── index.js          ← Express app entry point
-│   ├── db.js             ← pg connection pool + table init
+│   ├── data/marathons.js    Seed data for the marathon catalog
+│   ├── index.js             Express app entry point
+│   ├── db.js                PostgreSQL pool, table init, catalog seeding
 │   └── routes/
-│       ├── races.js      ← GET/POST/DELETE /api/races
-│       └── weather.js    ← GET /api/weather, GET /api/geocode
-├── .env                  ← local config (not committed)
+│       ├── marathons.js     Marathon catalog search
+│       └── weather.js       Forecast, past weather, climate-average APIs
 ├── .env.example
-└── package.json
+├── package.json
+└── package-lock.json
 ```
 
 ## API
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/races` | List saved races |
-| `POST` | `/api/races` | Save a race `{ name, location_name, lat, lon }` |
-| `DELETE` | `/api/races/:id` | Delete a saved race |
-| `GET` | `/api/weather?lat=&lon=` | Fetch forecast from Open-Meteo |
-| `GET` | `/api/geocode?q=&limit=` | Search locations via Nominatim |
+| `GET` | `/api/marathons?q=&limit=` | Search the seeded marathon catalog |
+| `GET` | `/api/marathons/:slug` | Fetch one marathon by slug |
+| `GET` | `/api/weather?lat=&lon=&date=` | Fetch forecast data for a race date within the forecast window |
+| `GET` | `/api/past-weather?lat=&lon=&date=` | Fetch archived weather for past race dates |
+| `GET` | `/api/climate?lat=&lon=&date=` | Fetch 5-year historical averages and year-by-year temperatures |
+
+## Weather Modes
+
+- Past marathon date: archived weather from Open-Meteo Archive API
+- Marathon date within forecast window: forecast from Open-Meteo Forecast API
+- Marathon date beyond forecast window: historical averages from the past 5 matching calendar dates
+
+The UI does not allow arbitrary date selection. The selected marathon record owns the date and start time.

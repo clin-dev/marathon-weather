@@ -61,25 +61,6 @@ router.get('/past-weather', async (req, res) => {
   }
 });
 
-// GET /api/geocode?q=&limit=
-router.get('/geocode', async (req, res) => {
-  const { q, limit = 6 } = req.query;
-  if (!q) return res.status(400).json({ error: 'q is required' });
-
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=${limit}&addressdetails=1`;
-    const upstream = await fetch(url, {
-      headers: {
-        'Accept-Language': 'en',
-        'User-Agent': 'marathon-weather-app/1.0',
-      },
-    });
-    res.json(await upstream.json());
-  } catch {
-    res.status(502).json({ error: 'Geocoding service unavailable' });
-  }
-});
-
 // GET /api/climate?lat=&lon=&date=YYYY-MM-DD
 // Returns hour-by-hour averages for the past 5 years on the given date
 router.get('/climate', async (req, res) => {

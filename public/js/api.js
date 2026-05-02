@@ -29,24 +29,3 @@ async function fetchClimate(lat, lon, date) {
   if (!res.ok) throw new Error('Climate API error');
   return res.json();
 }
-
-// ── Race persistence ──────────────────────────────────────────────────────────
-
-async function fetchRaces() {
-  const res = await fetch('/api/races');
-  return res.json();
-}
-
-async function saveRace(name, locationName, lat, lon, startHour) {
-  const res = await fetch('/api/races', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ name, location_name: locationName, lat, lon, start_hour: startHour }),
-  });
-  if (!res.ok) throw new Error('Failed to save race');
-  return res.json();
-}
-
-async function deleteRace(id) {
-  await fetch(`/api/races/${id}`, { method: 'DELETE' });
-}
